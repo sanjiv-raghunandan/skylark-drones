@@ -11,24 +11,35 @@ class GoogleSheetsService:
     def __init__(self):
         """Initialize Google Sheets client."""
         try:
-            # Check if running in Streamlit Cloud (secrets will be accessible)
+            # Determine if running on Streamlit Cloud or locally
+            running_on_cloud = False
+            credentials = None
+            
+            # Try to access Streamlit secrets (only works on Streamlit Cloud)
             try:
+                gcp_account = st.secrets["gcp_service_account"]
+                running_on_cloud = True
                 credentials = Credentials.from_service_account_info(
-                    st.secrets["gcp_service_account"],
+                    gcp_account,
                     scopes=['https://www.googleapis.com/auth/spreadsheets']
                 )
-                self.sheet_id = st.secrets.get("GOOGLE_SHEET_ID", os.getenv("GOOGLE_SHEET_ID"))
-                print("Using Streamlit Cloud credentials")
-            except (KeyError, FileNotFoundError, AttributeError):
-                # Fall back to local development
+                self.sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+                print("✅ Using Streamlit Cloud credentials")
+            except (KeyError, FileNotFoundError):
+                # Not on Streamlit Cloud, try local file
+                running_on_cloud = False
+            
+            # Local development fallback
+            if not running_on_cloud:
                 scopes = ['https://www.googleapis.com/auth/spreadsheets']
                 credentials = Credentials.from_service_account_file(
                     'config/service_account.json',
                     scopes=scopes
                 )
                 self.sheet_id = os.getenv("GOOGLE_SHEET_ID")
-                print("Using local credentials")
+                print("✅ Using local credentials")
             
+            # Authorize and connect
             self.client = gspread.authorize(credentials)
             self.spreadsheet = self.client.open_by_key(self.sheet_id)
             
